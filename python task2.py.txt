@@ -1,0 +1,105 @@
+import pandas as pd
+from datetime import time
+
+def calculate_distance_matrix(input_file):
+    
+    
+    df = pd.read_csv(input_file, index_col='id_start')
+    
+    distance_matrix = df.copy()
+
+    for start_id in df.index:
+        for end_id in df.index:
+            
+            if start_id != end_id:
+                
+                distance = df.loc[start_id, end_id] + df.loc[end_id, start_id]
+                distance_matrix.loc[start_id, end_id] = distance
+
+    return distance_matrix
+
+def unroll_distance_matrix(distance_matrix):
+    
+    unrolled_distances = pd.DataFrame(columns=['id_start', 'id_end', 'distance'])
+
+    for start_id in distance_matrix.index:
+        for end_id in distance_matrix.columns:
+            
+            if start_id != end_id:
+                
+                distance = distance_matrix.loc[start_id, end_id]
+                unrolled_distances = unrolled_distances.append({'id_start': start_id, 'id_end': end_id, 'distance': distance}, ignore_index=True)
+
+    return unrolled_distances
+
+def find_ids_within_ten_percentage_threshold(unrolled_distances, reference_value):
+    reference_avg_distance = unrolled_distances[unrolled_distances['id_start'] == reference_value]['distance'].mean()
+    
+    threshold_min = 0.9 * reference_avg_distance
+    threshold_max = 1.1 * reference_avg_distance
+    
+    selected_ids = unrolled_distances[(unrolled_distances['id_start'] != unrolled_distances['id_end']) & 
+                                      (unrolled_distances['distance'] >= threshold_min) & 
+                                      (unrolled_distances['distance'] <= threshold_max)]['id_start'].unique()
+    return sorted(selected_ids)
+
+def calculate_toll_rate(unrolled_distances):
+    
+    toll_rates = {'moto': 0.8, 'car': 1.2, 'rv': 1.5, 'bus': 2.2, 'truck': 3.6}
+
+    for vehicle_type, rate_coefficient in toll_rates.items():
+        
+        unrolled_distances[vehicle_type] = unrolled_distances['distance'] * rate_coefficient
+
+    return unrolled_distances
+
+def calculate_time_based_toll_rates(unrolled_distances):
+    def get_discount_factor(day, time):
+        
+        if day in ['Monday', 'Tuesday', 'Wednesday', 'Thusday', 'Friday']:
+            if time < time(10, 0, 0):
+                return 0.8
+            elif time < time(18, 0, 0):
+                return 1.2
+            else:
+                return 0.8
+        else:
+            return 0.7
+
+    unrolled_distances['start_day'] = 'Monday'
+    unrolled_distances['end_day'] = 'Sunday'
+    unrolled_distances['start_time'] = time(0, 0, 0)
+    unrolled_distances['end_time'] = time(23, 59, 59)
+
+    unrolled_distances['discount_factor'] = unrolled_distances.apply(lambda row: get_discount_factor(row['start_day'], row['start_time']), axis=1)
+    for vehicle_type in ['moto', 'car', 'rv', 'bus', 'truck']:
+        unrolled_distances[vehicle_type] *= unrolled_distances['discount_factor']
+
+    return unrolled_distances
+
+input_file = 'dataset-3.csv'
+
+#result
+
+distance_matrix = calculate_distance_matrix(input_file)
+print("Question 1 Result:")
+print(distance_matrix)
+
+unrolled_distances = unroll_distance_matrix(distance_matrix)
+print("Question 2 Result:")
+print(unrolled_distances)
+
+selected_ids = find_ids_within_ten_percentage_threshold(unrolled_distances, reference_value=1) 
+print("Question 3 Result:")
+print("IDs within 10% threshold:", selected_ids)
+
+
+
+
+toll_rates_df = calculate_toll_rate(unrolled_distances)
+print("Question 4 Result:")
+print(toll_rates_df)
+
+time_based_toll_rates_df = calculate_time_based_toll_rates(unrolled_distances)
+print("Question 5 Result:")
+print(time_based_toll_rates_df)

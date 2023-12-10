@@ -1,0 +1,76 @@
+import pandas as pd
+import numpy as np
+
+def generate_car_matrix(df):
+   
+    df = df.pivot(index='id_1', columns='id_2', values='car').fillna(0)
+    return df
+
+def get_type_count(df):
+    conditions = [
+        (df['car'] <= 15),
+        (df['car'] > 15) & (df['car'] <= 25),
+        (df['car'] > 25)
+    ]
+    choices = ['low', 'medium', 'high']
+    df['car_type'] = np.select(conditions, choices, default='unknown')
+    type_counts = df['car_type'].value_counts().sort_index().to_dict()
+    return type_counts
+
+def get_bus_indexes(df):
+    mean_bus = df['bus'].mean()
+    bus_indexes = df.index[df['bus'] > 2 * mean_bus].tolist()
+    return sorted(bus_indexes)
+
+def filter_routes(df):
+    truck_routes = df.groupby('route')['truck'].mean()
+    selected_routes = truck_routes[truck_routes > 7].index.tolist()
+    return sorted(selected_routes)
+
+def multiply_matrix(matrix):
+    modified_matrix = matrix.applymap(lambda x: x * 0.75 if x > 20 else x * 1.25)
+    modified_matrix = modified_matrix.round(1)
+    return modified_matrix
+
+def time_check(df):
+    
+    df['start_timestamp'] = pd.to_datetime(df['startDay'] + ' ' + df['startTime'])
+    df['end_timestamp'] = pd.to_datetime(df['endDay'] + ' ' + df['endTime'])
+    df['day_of_week'] = df['start_timestamp'].dt.day_name()
+    valid_time_mask = (df['end_timestamp'] - df['start_timestamp']) == pd.Timedelta(days=1)
+    valid_day_mask = df.groupby(['id', 'id_2'])['day_of_week'].nunique() == 7
+    completeness_check = valid_time_mask & valid_day_mask
+
+    return completeness_check
+
+
+
+#results
+
+df = pd.read_csv("dataset-1.csv")
+
+q1=generate_car_matrix(df)
+print('qustion 1:')
+print(q1)
+
+q2 = get_type_count(df)
+print("Question 2 Result:")
+print(q2)
+
+q3 = get_bus_indexes(df)
+print("Question 3 Result:")
+print(q3)
+
+q4 = filter_routes(df)
+print("Question 4 Result:")
+print(q4)
+
+q5 = multiply_matrix(q1)
+print("Question 5 Result:")
+print(q5)
+
+dff = pd.read_csv("dataset-2.csv")
+q6 = time_check(dff)
+
+print("Question 6 Result:")
+print(q6)
